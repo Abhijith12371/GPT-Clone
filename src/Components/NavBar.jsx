@@ -16,6 +16,9 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import { RiChatNewFill } from "react-icons/ri";
 import { useNavigate } from 'react-router-dom';
+import { setDoc, doc } from 'firebase/firestore';
+import { auth, db } from '../../firebaseconfig';
+import { collection } from 'firebase/firestore';
 
 // Styled components
 const ChatIcon = styled(RiChatNewFill)(({ theme }) => ({
@@ -67,11 +70,40 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
   },
 }));
 
-export default function SideBar() {
+export default function NavBar({ history,setHistory }) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
 
+  const userId = auth.currentUser?.uid;
+
+  const handleNewChat = async () => {
+    if (!userId) {
+      console.error("User is not authenticated.");
+      return;
+    }
+  
+    try {
+      // Generate a unique ID for the new chat
+      const chatId = doc(collection(db, "users", userId, "chats")).id;
+
+  
+      // Store the chat history in a new document under the user's "chats" subcollection
+      await setDoc(doc(db, "users", userId, "chats", chatId), {
+        chatHistory: history,
+        createdAt: new Date().toISOString(), // Optionally store the creation timestamp
+      });
+  
+      console.log("Chat history stored successfully for user:", userId, "Chat ID:", chatId);
+  
+      // Clear the history state to start a fresh chat
+      setHistory([]);
+    } catch (error) {
+      console.error("Error storing chat history:", error);
+    }
+  };
+  
+  
   const isMenuOpen = Boolean(anchorEl);
   const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
 
@@ -171,7 +203,7 @@ export default function SideBar() {
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
         <Toolbar>
-          <ChatIcon />
+          <ChatIcon onClick={handleNewChat} />
           <Typography
             variant="h6"
             noWrap

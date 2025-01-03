@@ -1,48 +1,30 @@
-import React, { useState, useEffect } from "react";
-import SideBar from "./Components/SideBar";
+import React, { useState } from "react";
+import NavBar from "./Components/NavBar"; // Assuming this is the menu bar
 import ChatContainer from "./Components/ChatContainer";
 import Search from "./Components/Search";
+import ChatSidebar from "./Components/ChatSideBar";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default function App() {
-  // Function to format the AI response
+  const [userInput, setUserInput] = useState("");
+  const [res, setRes] = useState("");
+  const [history, setHistory] = useState([]); // Chat history for the current chat
+
+  // Format the AI response
   const formatResponse = (text) => {
     if (!text) return "";
 
-    // Format bold text
     text = text.replace(/\*\*\*(.*?)\*\*\*/g, "<strong>$1</strong>");
-    // Format italic text
     text = text.replace(/\*\*(.*?)\*\*/g, "<em>$1</em>");
-    // Format code blocks
     text = text.replace(/```(.*?)```/gs, "<pre><code>$1</code></pre>");
-    // Format inline code
     text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-    // Format bullet points
     text = text.replace(/- (.*?)(\n|$)/g, "<li>$1</li>");
-    // Wrap bullet points in <ul> tags
     text = text.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
-    // Format headings
     text = text.replace(/# (.*?)(\n|$)/g, "<h1>$1</h1>");
 
     return text;
   };
 
-  // State variables
-  const [userInput, setUserInput] = useState("");
-  const [res, setRes] = useState(""); // Initialize response as an empty string
-  const [history, setHistory] = useState([]);
-
-  useEffect(() => {
-    if (userInput && res) {
-      setHistory((prevHistory) => [
-        ...prevHistory,
-        { role: "user", parts: [{ text: userInput }] },
-        { role: "model", parts: [{ text: res }] },
-      ]);
-    }
-  }, [userInput, res]);
-
-  // Google Generative AI setup
   const apiKey = "AIzaSyA0Z8_IFftejH30bAcA2m4-fmfP3ro3rf4"; // Replace with your actual API key
   const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -58,7 +40,7 @@ export default function App() {
     responseMimeType: "text/plain",
   };
 
-  // Function to process user input and fetch AI response
+  // Process user input and fetch AI response
   const run = async (input) => {
     if (!input.trim()) {
       console.error("Error: User input is empty");
@@ -66,30 +48,45 @@ export default function App() {
     }
 
     try {
-      console.log("History before API call:", JSON.stringify(history, null, 2));
       const chatSession = model.startChat({
         generationConfig,
         history,
       });
 
       const result = await chatSession.sendMessage(input);
-      const formattedResponse = formatResponse(result.response.text());
-      setRes(formattedResponse);
+      const aiResponse = formatResponse(result.response.text());
+
+      // Update history with the new user input and AI response
+      setHistory((prevHistory) => [
+        ...prevHistory,
+        { role: "user", parts: [{ text: input }] },
+        { role: "model", parts: [{ text: aiResponse }] },
+      ]);
+
+      // Update the response and clear the user input
+      setRes(aiResponse);
+      setUserInput("");
     } catch (error) {
       console.error("Error fetching from API:", error);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-y-auto">
-      {/* Sidebar Component */}
-      <SideBar />
+    <div className="flex h-screen overflow-hidden">
+      {/* Chat Sidebar Component */}
+      <ChatSidebar />
 
-      {/* Chat Container Component */}
-      <ChatContainer userInput={userInput} res={res} />
+      {/* Main Content Area */}
+      <div className="flex flex-col flex-1 h-full">
+        {/* Menu Bar Component */}
+        <NavBar history={history} setHistory={setHistory} />
 
-      {/* Search Component */}
-      <Search setUserInput={setUserInput} run={run} userInput={userInput} />
+        {/* Chat Container Component */}
+        <ChatContainer userInput={userInput} res={res} />
+
+        {/* Search Component */}
+        <Search setUserInput={setUserInput} run={run} userInput={userInput} />
+      </div>
     </div>
   );
 }
